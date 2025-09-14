@@ -23,8 +23,12 @@ PG_DB = "devbot_db"
 PG_USER = "devbot_user"
 PG_PASS = "123456"
 
-# Setup ChromaDB
-client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
+# Setup ChromaDB (Ephemeral = no disk writes, works anywhere)
+try:
+    client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
+except PermissionError:
+    client = chromadb.EphemeralClient()
+
 embed_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
 
 # Load collections
