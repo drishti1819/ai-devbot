@@ -23,10 +23,15 @@ PG_DB = "devbot_db"
 PG_USER = "devbot_user"
 PG_PASS = "123456"
 
-# Setup ChromaDB (Ephemeral = no disk writes, works anywhere)
+# Setup ChromaDB (persistent with safe fallback)
+os.makedirs(VECTORSTORE_PATH, exist_ok=True)  # ensure directory exists
+
 try:
     client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
-except PermissionError:
+    print(f"[ChromaDB] Using PersistentClient at {VECTORSTORE_PATH}")
+except Exception as e:
+    print(f"[ChromaDB] PersistentClient failed ({type(e).__name__}): {e!s}")
+    print("[ChromaDB] Falling back to EphemeralClient")
     client = chromadb.EphemeralClient()
 
 embed_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
