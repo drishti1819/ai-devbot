@@ -8,6 +8,10 @@ DB_PASSWORD = "123456"
 DB_HOST = "localhost"
 DB_PORT = "5432"
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+conn = psycopg2.connect(DATABASE_URL)
+
 def get_connection():
     return psycopg2.connect(
         dbname=DB_NAME,
