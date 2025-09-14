@@ -1,10 +1,10 @@
 # auth.py
 import psycopg2
 
-PG_HOST = "localhost"
+PG_HOST = "db"
 PG_DB = "devbot_db"
 PG_USER = "devbot_user"
-PG_PASS = "123456"
+PG_PASS = "devbot_pass"
 
 def get_db():
     return psycopg2.connect(
