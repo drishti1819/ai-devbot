@@ -10,10 +10,15 @@ import json
 import hashlib
 
 # Constants
+# Constants
 TUTORIAL_COLLECTION = "python_tutorial"
 MEMORY_COLLECTION = "user_memory"
-VECTORSTORE_PATH = "./vectorstore"
+
+# Store inside the container filesystem (safe for all users)
+VECTORSTORE_PATH = "/app/vectorstore"
+
 EMBED_MODEL = "all-MiniLM-L6-v2"
+
 LLM_ENDPOINT = "http://localhost:11434/api/generate"
 LLM_MODEL = "deepseek-coder:6.7b"
 
