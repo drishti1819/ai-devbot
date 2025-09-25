@@ -1,0 +1,72 @@
+DevBot is a private, local-first chatbot designed to assist developers with programming-related questions. The bot combines a static knowledge base (a Python tutorial) with a dynamic document ingestion feature, allowing users to upload their own documents (PDF, DOCX, TXT, MD) and get answers based on their proprietary content.
+
+Powered by a local Large Language Model (LLM) and a local vector database, DevBot offers a secure and fast experience without relying on external APIs.
+
+Key Features
+Local-First Architecture: All data processing and LLM inference happen locally on your machine.
+
+Document-Based Context: Upload your own technical documents to provide the chatbot with context for your specific projects and questions.
+
+Persistent Memory: The chatbot remembers past conversations and uses them to inform future responses, providing a personalized experience.
+
+Secure & Private: No data is sent to the cloud, ensuring your proprietary information remains confidential.
+
+Prerequisites
+Before you begin, ensure you have the following services and tools installed and running:
+
+Python 3.12 or newer: The project is built on Python.
+
+PostgreSQL: The devbot_db database is used to store chat history and user information.
+
+Database Credentials:
+
+Host: localhost
+
+DB: devbot_db
+
+User: devbot_user
+
+Password: 123456
+
+Ollama: A local LLM server is required. We use deepseek-coder:6.7b for this project.
+
+To install Ollama, visit ollama.com.
+
+To run the LLM, open your terminal and run: ollama serve
+
+To download the model used in this project, run: ollama pull deepseek-coder:6.7b
+
+A Stable Internet Connection: Required for the initial model and dependency downloads.
+
+Getting Started
+1. Clone the Repository
+Clone this repository to your local machine.
+git clone https://github.com/your-username/ai-devbot.git
+cd ai-devbot
+
+2. Set Up the Environment
+Create a Python virtual environment and install the dependencies.
+python3 -m venv devbot
+source devbot/bin/activate
+pip install -r requirements.txt
+
+3. Download the Embedding Model
+The project uses the all-MiniLM-L6-v2 embedding model. Due to its size and potential network issues, it's best to download it manually.
+
+Go to the Hugging Face model page: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+
+Click on the Files tab and download all the files.
+
+In your project directory, create a folder named models and inside it, another folder named all-MiniLM-L6-v2.
+
+Place all the downloaded files into the models/all-MiniLM-L6-v2 directory.
+
+4. Ingest the Tutorial
+
+This step populates the initial knowledge base.
+python ingest_tutorial.py
+
+5. Run the Chatbot
+Launch the Streamlit application to start using the chatbot.
+streamlit run chat_ui.py
+This will open the DevBot UI in your web browser.

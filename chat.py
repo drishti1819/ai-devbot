@@ -1,14 +1,13 @@
 import os
 import uuid
-import chromadb
-from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
-import psycopg2
-from datetime import datetime
 import requests
 import json
 import hashlib
+import psycopg2
+# Import shared objects from the new config file
+from config import client, embed_func, embed, LLM_ENDPOINT, LLM_MODEL, PG_HOST, PG_DB, PG_USER, PG_PASS
 
+<<<<<<< HEAD
 # Constants
 # Constants
 TUTORIAL_COLLECTION = "python_tutorial"
@@ -43,35 +42,55 @@ embed_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name
 
 # Load collections
 tutorial = client.get_or_create_collection(name=TUTORIAL_COLLECTION, embedding_function=embed_func)
+=======
+# ----------------- Constants -----------------
+DEFAULT_TUTORIAL_COLLECTION = "python_tutorial"
+MEMORY_COLLECTION = "user_memory"
+
+# Load collections using the shared client and embed_func
+tutorial = client.get_or_create_collection(name=DEFAULT_TUTORIAL_COLLECTION, embedding_function=embed_func)
+>>>>>>> 4584bef1 (feat: Add local RAG, clean code, and consolidate dependencies)
 memory = client.get_or_create_collection(name=MEMORY_COLLECTION, embedding_function=embed_func)
 
-embed = SentenceTransformer(EMBED_MODEL)
-
-# Helper: Generate a unique hash for memory logging
+# ----------------- Helpers -----------------
 def make_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
-# Retrieve memory and tutorial context
-def retrieve_context(query, top_k=5):
+def retrieve_context(query, top_k=5, collection_names=None):
+    """
+    Retrieve relevant chunks from uploaded document collections (if any) and memory.
+    Prioritize document context first, then memory, then tutorial.
+    """
+    context_chunks = []
+    
     try:
-        tutorial_results = tutorial.query(query_texts=[query], n_results=top_k)
+        if collection_names:
+            for col_name in reversed(collection_names):
+                collection = client.get_or_create_collection(
+                    name=col_name, embedding_function=embed_func
+                )
+                results = collection.query(query_texts=[query], n_results=top_k)
+                doc_chunks = results.get("documents", [[]])[0]
+                context_chunks.extend(doc_chunks)
+        
         memory_results = memory.query(query_texts=[query], n_results=top_k)
+        memory_chunks = memory_results.get("documents", [[]])[0]
+        context_chunks.extend(memory_chunks)
+
+        if not context_chunks:
+            tutorial_results = tutorial.query(query_texts=[query], n_results=top_k)
+            tutorial_chunks = tutorial_results.get("documents", [[]])[0]
+            context_chunks.extend(tutorial_chunks)
+
     except Exception as e:
         print(f"[Context Retrieval Error]: {e}")
         return []
 
-    tutorial_chunks = tutorial_results.get("documents", [[]])[0]
-    memory_chunks = memory_results.get("documents", [[]])[0]
-    return tutorial_chunks + memory_chunks
+    return context_chunks
 
-# Query DeepSeek-Coder via Ollama
 def query_llm(prompt, model=LLM_MODEL):
     headers = {"Content-Type": "application/json"}
-    data = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False
-    }
+    data = {"model": model, "prompt": prompt, "stream": False}
     try:
         response = requests.post(LLM_ENDPOINT, headers=headers, data=json.dumps(data))
         if response.status_code == 200:
@@ -79,48 +98,37 @@ def query_llm(prompt, model=LLM_MODEL):
         else:
             return f"[LLM Error {response.status_code}] {response.text}"
     except requests.exceptions.RequestException as e:
-        return f"[Connection Error] {e}"
+        return f"[Connection Error] Is the local LLM running at {LLM_ENDPOINT}? Error: {e}"
 
-# Log question and answer to memory
-def log_to_memory(question: str, answer: str, embed):
-    q_hash = make_hash(question)
-    existing = memory.get()
-    existing_hashes = {make_hash(doc): doc for doc in existing.get("documents", [])}
-
-    if q_hash in existing_hashes:
-        return  # Skip duplicate
-
+def log_to_memory(question: str, answer: str):
+    if not question or not answer:
+        return
+    
+    combined_text = f"Q: {question.strip()}\nA: {answer.strip()}"
     uid = str(uuid.uuid4())
     memory.add(
         ids=[uid],
-        documents=[question],
-        metadatas=[{"answer": answer}],
-        embeddings=[embed.encode(question)]
+        documents=[combined_text],
+        metadatas=[{"source": "chat"}],
+        embeddings=[embed.encode(combined_text).tolist()]
     )
-    
-    # Also log to PostgreSQL
-    log_to_postgres(question, answer)
 
-def log_to_postgres(question: str, answer: str):
+def log_to_postgres(user_email: str, question: str, answer: str):
     try:
-        conn = psycopg2.connect(
-            host=PG_HOST,
-            database=PG_DB,
-            user=PG_USER,
-            password=PG_PASS
-        )
+        conn = psycopg2.connect(host=PG_HOST, database=PG_DB, user=PG_USER, password=PG_PASS)
         cur = conn.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS chat_history (
                 id SERIAL PRIMARY KEY,
+                user_email TEXT NOT NULL,
                 question TEXT NOT NULL,
                 answer TEXT NOT NULL,
                 timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         """)
         cur.execute(
-            "INSERT INTO chat_history (question, answer) VALUES (%s, %s)",
-            (question, answer)
+            "INSERT INTO chat_history (user_email, question, answer) VALUES (%s, %s, %s)",
+            (user_email, question, answer)
         )
         conn.commit()
         cur.close()
@@ -128,41 +136,13 @@ def log_to_postgres(question: str, answer: str):
     except Exception as e:
         print(f"[PostgreSQL Logging Error]: {e}")
 
-def get_chat_history(limit=20):
-    try:
-        conn = psycopg2.connect(
-            host=PG_HOST,
-            database=PG_DB,
-            user=PG_USER,
-            password=PG_PASS
-        )
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT question, answer, timestamp
-            FROM chat_history
-            ORDER BY timestamp DESC
-            LIMIT %s
-        """, (limit,))
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-        return [{"question": row[0], "answer": row[1], "timestamp": row[2].isoformat()} for row in rows]
-    except Exception as e:
-        print(f"[PostgreSQL Retrieval Error]: {e}")
-        return []
+# ----------------- Chat Functions -----------------
+def chat_raw(user_input: str, collection_names=None) -> dict:
+    context_chunks = retrieve_context(user_input, collection_names=collection_names)
+    context = "\n\n".join(context_chunks) if context_chunks else "[No relevant memory or document found.]"
 
-# Unified response: returns only string
-def chat_response(user_input: str) -> str:
-    result = chat_raw(user_input)
-    return result["answer"]
-
-# UI-friendly: returns dict with question + answer
-def chat_raw(user_input: str) -> dict:
-    context_chunks = retrieve_context(user_input)
-    context = "\n\n".join(context_chunks) if context_chunks else "[No relevant memory/tutorial found.]"
-
-    full_prompt = f"""You are a helpful assistant for Python developers.
-Use CONTEXT and MEMORY to answer the QUESTION clearly and precisely. If code is given, analyze or modify it as needed.
+    full_prompt = f"""You are a helpful assistant.
+Use CONTEXT and MEMORY to answer the QUESTION clearly and precisely.
 
 ### CONTEXT ###
 {context}
@@ -173,27 +153,9 @@ Use CONTEXT and MEMORY to answer the QUESTION clearly and precisely. If code is 
 ### RESPONSE ###
 """
     ai_response = query_llm(full_prompt)
-    log_to_memory(user_input, ai_response, embed)
+    log_to_memory(user_input, ai_response)
     return {"question": user_input, "answer": ai_response.strip()}
-    
-# UI entrypoint
-def chat(user_input: str) -> str:
-    """
-    Wrapper for Streamlit UI.
-    Takes user input string and returns chatbot's answer string.
-    """
-    return chat_response(user_input)
 
-if __name__ == "__main__":
-    print("Devbot (Private Python Assistant using DeepSeek-Coder)\nType 'exit' or 'quit' to end the session.")
-    while True:
-        try:
-            user_input = input("\nYou: ")
-            if user_input.strip().lower() in {"exit", "quit"}:
-                print("[Goodbye]")
-                break
-            result = chat_raw(user_input)
-            print(f"\nDevbot: {result['answer']}")
-        except KeyboardInterrupt:
-            print("\n[Session Ended]")
-            break
+def chat(user_input: str, collection_names=None) -> str:
+    result = chat_raw(user_input, collection_names=collection_names)
+    return result["answer"]

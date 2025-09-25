@@ -1,13 +1,15 @@
-import fitz  # PyMuPDF
+import fitz
 import os
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import chromadb
-from chromadb.utils import embedding_functions
+# Import shared objects from the config file
+from config import client, embed_func
+from pathlib import Path
 
+# ----------------- Config -----------------
 PDF_PATH = "tutorials/pythonlearn.pdf"
 COLLECTION_NAME = "python_tutorial"
 
-# Load the PDF
+# ----------------- PDF Extraction -----------------
 def extract_text_from_pdf(path):
     text = ""
     doc = fitz.open(path)
@@ -15,7 +17,7 @@ def extract_text_from_pdf(path):
         text += page.get_text()
     return text
 
-# Split into chunks
+# ----------------- Text Splitting -----------------
 def split_text(text):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -24,23 +26,32 @@ def split_text(text):
     )
     return splitter.split_text(text)
 
-# Store into ChromaDB
+# ----------------- Store Chunks (with batching) -----------------
 def store_chunks(chunks):
-    client = chromadb.PersistentClient(path="./db")
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
-        embedding_function=embedding_functions.DefaultEmbeddingFunction()
+        embedding_function=embed_func
     )
 
+    documents = []
+    ids = []
     for i, chunk in enumerate(chunks):
-        collection.add(
-            documents=[chunk],
-            ids=[f"{COLLECTION_NAME}-{i}"]
-        )
+        documents.append(chunk)
+        ids.append(f"{COLLECTION_NAME}-{i}")
 
+    collection.add(
+        documents=documents,
+        ids=ids
+    )
+
+# ----------------- CLI -----------------
 if __name__ == "__main__":
     assert os.path.exists(PDF_PATH), f"PDF not found at {PDF_PATH}"
-    raw_text = extract_text_from_pdf(PDF_PATH)
-    chunks = split_text(raw_text)
-    store_chunks(chunks)
-    print(f"Ingested {len(chunks)} chunks into collection '{COLLECTION_NAME}'")
+    print(f"Attempting to ingest tutorial from {PDF_PATH}...")
+    try:
+        raw_text = extract_text_from_pdf(PDF_PATH)
+        chunks = split_text(raw_text)
+        store_chunks(chunks)
+        print(f"Ingested {len(chunks)} chunks into collection '{COLLECTION_NAME}' successfully.")
+    except Exception as e:
+        print(f"Failed to ingest tutorial: {e}")
