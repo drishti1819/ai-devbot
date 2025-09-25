@@ -7,49 +7,12 @@ import psycopg2
 # Import shared objects from the new config file
 from config import client, embed_func, embed, LLM_ENDPOINT, LLM_MODEL, PG_HOST, PG_DB, PG_USER, PG_PASS
 
-<<<<<<< HEAD
-# Constants
-# Constants
-TUTORIAL_COLLECTION = "python_tutorial"
-MEMORY_COLLECTION = "user_memory"
-
-# Store inside the container filesystem (safe for all users)
-VECTORSTORE_PATH = "/app/vectorstore"
-
-EMBED_MODEL = "all-MiniLM-L6-v2"
-
-LLM_ENDPOINT = "http://localhost:11434/api/generate"
-LLM_MODEL = "deepseek-coder:6.7b"
-
-# PostgreSQL config
-PG_HOST = "localhost"
-PG_DB = "devbot_db"
-PG_USER = "devbot_user"
-PG_PASS = "123456"
-
-# Setup ChromaDB (persistent with safe fallback)
-os.makedirs(VECTORSTORE_PATH, exist_ok=True)  # ensure directory exists
-
-try:
-    client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
-    print(f"[ChromaDB] Using PersistentClient at {VECTORSTORE_PATH}")
-except Exception as e:
-    print(f"[ChromaDB] PersistentClient failed ({type(e).__name__}): {e!s}")
-    print("[ChromaDB] Falling back to EphemeralClient")
-    client = chromadb.EphemeralClient()
-
-embed_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL)
-
-# Load collections
-tutorial = client.get_or_create_collection(name=TUTORIAL_COLLECTION, embedding_function=embed_func)
-=======
 # ----------------- Constants -----------------
 DEFAULT_TUTORIAL_COLLECTION = "python_tutorial"
 MEMORY_COLLECTION = "user_memory"
 
 # Load collections using the shared client and embed_func
 tutorial = client.get_or_create_collection(name=DEFAULT_TUTORIAL_COLLECTION, embedding_function=embed_func)
->>>>>>> 4584bef1 (feat: Add local RAG, clean code, and consolidate dependencies)
 memory = client.get_or_create_collection(name=MEMORY_COLLECTION, embedding_function=embed_func)
 
 # ----------------- Helpers -----------------
