@@ -1,38 +1,17 @@
-<<<<<<< HEAD
-transformers==4.44.0
-scikit-learn==1.5.1
-streamlit==1.38.0
-psycopg2-binary==2.9.9
-chromadb
-sentence-transformers
-sqlalchemy
-pandas
-numpy
-torch==2.3.1+cpu
-torchvision==0.18.1+cpu
-torchaudio==2.3.1+cpu
---extra-index-url https://download.pytorch.org/whl/cpu
-=======
-# This file lists the top-level Python dependencies for the DevBot project.
-# To install all required packages, run: pip install -r requirements.txt
-
-# --- Core Application & UI ---
 streamlit
-psycopg2-binary # For PostgreSQL database connection
-
-# --- LLM and RAG Components ---
 chromadb
 sentence-transformers
-huggingface-hub # Explicitly required by sentence-transformers for local caching
-
-# --- Document Ingestion ---
+psycopg2-binary
 langchain
-langchain-text-splitters
+scikit-learn
+requests
+numpy
+pandas
+matplotlib
+torch
+shap
+tqdm
+fitz
 PyMuPDF
 docx2txt
-
-# --- Core Utilities ---
-requests
-python-dotenv
-bcrypt
->>>>>>> 4584bef1 (feat: Add local RAG, clean code, and consolidate dependencies)
+certifi
